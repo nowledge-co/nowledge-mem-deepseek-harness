@@ -1,11 +1,11 @@
 # Nowledge Mem for DeepSeek Harness
 
-Community DeepSeek Harness (`dsh`) bundle for Nowledge Mem. This is an external plugin package, not a patch to the official `deepseek-ai/deepseek-harness` repository.
+Community DeepSeek Harness (`dsh`) bundle for Nowledge Mem, published from the standalone `nowledge-co/nowledge-mem-deepseek-harness` repo and mirrored in `nowledge-co/community`.
 
 ## Install
 
 ```sh
-dsh plugin --profile web add nowledge-mem-deepseek-harness
+dsh plugin --profile web add github:nowledge-co/nowledge-mem-deepseek-harness
 dsh web
 ```
 
@@ -103,6 +103,4 @@ After each completed DSH turn, the plugin serializes user, assistant, and tool-r
 
 ## Community Position
 
-DeepSeek Harness currently asks external authors to publish plugins outside the official repository and tag them with `dsh-plugin` for discovery. This package follows that route.
-
-The canonical public repository is `nowledge-co/nowledge-mem-deepseek-harness`. Add the repository topic `dsh-plugin` there so DSH users can find the package through the ecosystem convention. The `community` repository keeps a registry/index mirror for Nowledge Mem surfaces.
+The canonical public repository is `nowledge-co/nowledge-mem-deepseek-harness`, tagged with `dsh-plugin` for DeepSeek Harness ecosystem discovery. The `community` repository keeps a registry/index mirror for Nowledge Mem surfaces.

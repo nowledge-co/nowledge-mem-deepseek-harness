@@ -1,6 +1,6 @@
 # Nowledge Mem community bundle for DeepSeek Harness.
 # Install with:
-#   dsh plugin --profile web add nowledge-mem-deepseek-harness
+#   dsh plugin --profile web add github:nowledge-co/nowledge-mem-deepseek-harness
 #
 # The native row handles Context Bundle / Working Memory injection, prompt-time
 # recall, and turn-end transcript capture through the user's `nmem` CLI.
