@@ -41,14 +41,14 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "0.1.0-rc.5"
+    "@deepseek-ai/schemastery": "^3.18.1"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": ">=0.1.0-rc.5 <0.2.0",
+    "@deepseek-ai/cordis": ">=4.0.0 <5.0.0",
     "@deepseek-ai/dsh-agent": ">=0.1.0-rc.5 <0.2.0",
-    "@deepseek-ai/dsh-llm": ">=0.1.0-rc.5 <0.2.0",
-    "@deepseek-ai/dsh-session": ">=0.1.0-rc.5 <0.2.0",
-    "@deepseek-ai/dsh-shell": ">=0.1.0-rc.5 <0.2.0",
-    "@deepseek-ai/dsh-mcp-client": ">=0.1.0-rc.5 <0.2.0"
+    "@deepseek-ai/dsh-llm": ">=0.0.1-rc.1 <0.2.0",
+    "@deepseek-ai/dsh-session": ">=0.0.1-rc.1 <0.2.0",
+    "@deepseek-ai/dsh-shell": ">=0.0.1-rc.5 <0.2.0",
+    "@deepseek-ai/dsh-mcp-client": ">=0.0.1-rc.1 <0.2.0"
   }
 }
