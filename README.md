@@ -1,6 +1,12 @@
 # Nowledge Mem for DeepSeek Harness
 
-Community DeepSeek Harness (`dsh`) bundle for Nowledge Mem, published from the standalone `nowledge-co/nowledge-mem-deepseek-harness` repo and mirrored in `nowledge-co/community`.
+[![Get Nowledge Mem](https://img.shields.io/badge/Get-Nowledge%20Mem-00A3A3?style=flat&logo=rocket&logoColor=white)](https://mem.nowledge.co/)
+[![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
+[![DeepSeek Harness](https://img.shields.io/badge/DeepSeek%20Harness-dsh--plugin-111827?style=flat)](https://github.com/deepseek-ai/deepseek-harness)
+
+One memory layer for every AI tool and agent, packaged as a DeepSeek Harness (`dsh`) bundle. Nowledge Mem brings DSH into the same durable memory system as your other agents, with startup context, prompt-time recall, MCP memory tools, and turn-end thread capture.
+
+This repository is the canonical standalone plugin package, mirrored in `nowledge-co/community` for the Nowledge Mem connector index.
 
 ## Install
 
@@ -40,7 +46,7 @@ export NMEM_API_KEY="<mem-api-key>"
 
 - Injects the Nowledge Mem Context Bundle once per DSH session through `agent/pre-step`.
 - Runs prompt-time memory recall for continuation, release, regression, connector, plugin, and other recall-shaped prompts.
-- Adds the Mem MCP server through DSH's `@deepseek-ai/dsh-mcp-client`, so tools appear as `mcp__nowledge_mem__...`.
+- Adds the Mem MCP server through DSH's reconnecting `@deepseek-ai/dsh-mcp-client`, so tools appear as `mcp__nowledge_mem__...`.
 - Imports the real DSH surface transcript after completed turns with `nmem t import --source deepseek-harness`.
 - Stamps CLI imports with `NMEM_IMPORT_ORIGIN=deepseek-harness`.
 
