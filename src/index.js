@@ -1,5 +1,5 @@
 /**
- * Community Nowledge Mem bundle for DeepSeek Harness.
+ * Nowledge Mem bundle for DeepSeek Harness.
  *
  * The plugin uses DSH-native Cordis events instead of patching the official
  * DeepSeek Harness repository: `agent/pre-step` injects durable Mem context
@@ -13,8 +13,21 @@ import { join } from 'node:path'
 import z from '@deepseek-ai/schemastery'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 
+import { DEFAULT_PROMPT_RECALL_PATTERN, shouldRecallForPrompt } from './recall.js'
 import { hasContextBundle } from './context.js'
 import { flushBeforeImport } from './session-flush.js'
+import {
+  errorMessage,
+  isSandboxUnavailableError,
+  runShellWithHostSandboxRetry,
+  warn,
+} from './sandbox-retry.js'
+import { importResultAcknowledgement } from './session-delta.js'
+import { captureSession } from './session-capture.js'
+import {
+  boundText,
+  buildThreadImportArgs,
+} from './thread-import.js'
 
 export const name = 'nowledge-mem'
 export const inject = ['agents', 'sessions', 'shell']
@@ -28,35 +41,6 @@ const DEFAULT_THREAD_MESSAGE_MAX_CHARS = 16_000
 const DEFAULT_RECALL_LIMIT = 8
 const DEFAULT_TIMEOUT_MS = 8_000
 const DEFAULT_STDOUT_MAX_BYTES = 512 * 1024
-const SANDBOX_UNAVAILABLE_CODE = 'SANDBOX_UNAVAILABLE'
-const DEFAULT_PROMPT_RECALL_PATTERN = [
-  'remember',
-  'memory',
-  'mem',
-  'nowledge',
-  'context',
-  'previous',
-  'prior',
-  'history',
-  'continue',
-  'recall',
-  'decision',
-  'release',
-  'regression',
-  'connector',
-  'plugin',
-  'thread',
-  '记忆',
-  '上下文',
-  '继续',
-  '之前',
-  '历史',
-  '决策',
-  '发布',
-  '回归',
-  '插件',
-  '连接器',
-].join('|')
 
 export const Config = z.object({
   cliPath: z.string(),
@@ -65,6 +49,7 @@ export const Config = z.object({
   contextOnSessionStart: z.boolean(),
   recallOnPrompt: z.boolean(),
   syncOnTurnEnd: z.boolean(),
+  allowDangerFullAccessRetry: z.boolean(),
   promptRecallPattern: z.string(),
   recallLimit: z.number(),
   maxPromptChars: z.number(),
@@ -83,11 +68,7 @@ function optionalString(value) {
   return trimmed === undefined || trimmed === '' ? undefined : trimmed
 }
 
-export function boundText(text, maxChars) {
-  if (text.length <= maxChars) return text
-  if (maxChars <= 1) return text.slice(0, Math.max(0, maxChars))
-  return `${text.slice(0, maxChars - 1)}...`
-}
+export { boundText }
 
 function requireSafeInteger(field, value, minimum) {
   if (!Number.isSafeInteger(value) || value < minimum) {
@@ -103,6 +84,7 @@ function resolveConfig(config = {}) {
     contextOnSessionStart: config.contextOnSessionStart ?? true,
     recallOnPrompt: config.recallOnPrompt ?? true,
     syncOnTurnEnd: config.syncOnTurnEnd ?? true,
+    allowDangerFullAccessRetry: config.allowDangerFullAccessRetry ?? false,
     promptRecallPattern: new RegExp(config.promptRecallPattern ?? DEFAULT_PROMPT_RECALL_PATTERN, 'iu'),
     recallLimit: config.recallLimit ?? DEFAULT_RECALL_LIMIT,
     maxPromptChars: config.maxPromptChars ?? DEFAULT_PROMPT_MAX_CHARS,
@@ -139,40 +121,7 @@ function envFor(config, includeImportOrigin) {
   return env
 }
 
-function errorMessage(error) {
-  if (error instanceof Error) return `${error.name}: ${error.message}`
-  return String(error)
-}
-
-function warn(ctx, message) {
-  if (typeof ctx.logger?.warn === 'function') ctx.logger.warn(message)
-}
-
-export function isSandboxUnavailableError(error) {
-  if (typeof error !== 'object' || error === null) return false
-  return error.code === SANDBOX_UNAVAILABLE_CODE || error.name === 'SandboxUnavailableError'
-}
-
-function dangerFullAccessPolicy(ctx, session) {
-  const service = typeof ctx.get === 'function' ? ctx.get('sandboxPolicy') : undefined
-  if (typeof service?.resolve === 'function') {
-    try {
-      return service.resolve(session === undefined
-        ? { mode: 'danger-full-access' }
-        : { session, mode: 'danger-full-access' })
-    } catch (error) {
-      warn(ctx, `nowledge-mem: failed to resolve danger-full-access sandbox policy: ${errorMessage(error)}`)
-    }
-  }
-  return {
-    mode: 'danger-full-access',
-    workspaceRoot: optionalString(session?.header?.cwd) ?? process.cwd(),
-  }
-}
-
-async function runShell(ctx, request) {
-  return await ctx.shell.run(ctx.shell.resolve(request))
-}
+export { isSandboxUnavailableError }
 
 async function runNmem(ctx, config, args, signal, includeImportOrigin, stdin, session) {
   const command = [config.cliPath, ...args].map(shellQuote).join(' ')
@@ -184,24 +133,12 @@ async function runNmem(ctx, config, args, signal, includeImportOrigin, stdin, se
     stdin,
     env: envFor(config, includeImportOrigin),
   }
-  try {
-    return await runShell(ctx, request)
-  } catch (error) {
-    if (!isSandboxUnavailableError(error)) {
-      warn(ctx, `nowledge-mem: nmem shell call failed: ${errorMessage(error)}`)
-      return undefined
-    }
-    warn(ctx, `nowledge-mem: nmem shell sandbox unavailable; retrying without sandbox confinement: ${errorMessage(error)}`)
-  }
-  try {
-    return await runShell(ctx, {
-      ...request,
-      sandboxPolicy: dangerFullAccessPolicy(ctx, session),
-    })
-  } catch (error) {
-    warn(ctx, `nowledge-mem: nmem shell retry failed: ${errorMessage(error)}`)
-    return undefined
-  }
+  return await runShellWithHostSandboxRetry(
+    ctx,
+    request,
+    session,
+    config.allowDangerFullAccessRetry,
+  )
 }
 
 function successfulStdout(result) {
@@ -249,10 +186,7 @@ function proposedPromptText(messages, maxChars) {
   return boundText(text, maxChars)
 }
 
-export function shouldRecallForPrompt(prompt, pattern) {
-  pattern.lastIndex = 0
-  return prompt.trim() !== '' && pattern.test(prompt)
-}
+export { shouldRecallForPrompt }
 
 function parseSearchResponse(text) {
   try {
@@ -344,116 +278,69 @@ async function loadRecallMessage(ctx, config, query, signal, session) {
   return rendered === undefined ? undefined : pluginContextMessage('recall', 'nowledge-mem-recall', rendered)
 }
 
-function eventMessage(event) {
-  switch (event.type) {
-    case 'user/message':
-      return event.data
-    case 'assistant/message':
-      return event.data.message
-    case 'tool/result':
-      return event.data.message
-    default:
-      return undefined
-  }
-}
-
-function importRole(event) {
-  switch (event.type) {
-    case 'user/message':
-      return 'user'
-    case 'assistant/message':
-      return 'assistant'
-    case 'tool/result':
-      return 'tool'
-    default:
-      return undefined
-  }
-}
-
-function firstUserTitle(messages, sessionId) {
-  const firstUser = messages.find(message => message.role === 'user')
-  if (firstUser === undefined) return `DeepSeek Harness ${sessionId}`
-  const firstLine = firstUser.content.split(/\r?\n/u).find(line => line.trim() !== '')?.trim()
-  return firstLine === undefined ? `DeepSeek Harness ${sessionId}` : boundText(firstLine, 80)
-}
-
-function stableThreadId(sessionId) {
-  const safe = sessionId.replace(/[^A-Za-z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '')
-  return `deepseek-harness-${safe === '' ? 'session' : safe}`
-}
-
 export function buildThreadImportPayload(session, maxMessageChars, sourceApp = DEFAULT_SOURCE_APP) {
-  const messages = []
-  for (const event of session.events) {
-    const role = importRole(event)
-    const message = eventMessage(event)
-    if (role === undefined || message === undefined) continue
-    if (message.source.kind === 'plugin' && message.source.plugin === name) continue
-    const content = boundText(messageText(message).trim(), maxMessageChars)
-    if (content === '') continue
-    const metadata = {
-      dsh_seq: event.seq,
-      dsh_event_type: event.type,
-      dsh_message_id: message.id,
-      dsh_source_kind: message.source.kind,
-    }
-    if (event.type === 'assistant/message') {
-      metadata.dsh_turn = event.data.turn
-      metadata.dsh_step = event.data.step
-      metadata.dsh_model_provider = event.data.message.source.provider
-      metadata.dsh_model = event.data.message.source.model
-    } else if (event.type === 'tool/result') {
-      metadata.dsh_turn = event.data.turn
-      metadata.dsh_step = event.data.step
-      metadata.dsh_tool_call_id = event.data.message.source.callId
-      if (event.data.error !== undefined) metadata.dsh_tool_error = event.data.error
-    }
-    messages.push({
-      role,
-      content,
-      timestamp: new Date(event.time).toISOString(),
-      metadata,
-    })
-  }
-  if (messages.length === 0) return undefined
-  const sessionId = String(session.header.id)
-  return {
-    title: firstUserTitle(messages, sessionId),
-    messages,
-    metadata: {
-      source_app: sourceApp,
-      dsh_session_id: sessionId,
-      dsh_cwd: session.header.cwd,
-      dsh_parent_session: session.header.parentSession,
-      dsh_origin: session.header.origin,
-      dsh_agent_preset: session.header.agentPreset,
-    },
-  }
+  return captureSession(session, {
+    sourceApp,
+    pluginName: name,
+    renderMessage: messageText,
+    maxMessageChars,
+  }).deltaFrom(-1)?.payload
 }
 
-async function importSession(ctx, config, session) {
-  const payload = buildThreadImportPayload(session, config.maxThreadMessageChars, config.sourceApp)
-  if (payload === undefined) return false
+async function importSession(ctx, config, session, cursor) {
+  const capture = captureSession(session, {
+    sourceApp: config.sourceApp,
+    pluginName: name,
+    renderMessage: messageText,
+    maxMessageChars: config.maxThreadMessageChars,
+    establishedTitle: cursor?.title,
+  })
+  const { sessionId, title } = capture
+  let delta = capture.deltaFrom(cursor?.seq ?? -1)
+  if (delta === undefined) return undefined
+  let payload = delta.payload
   const staging = await mkdtemp(join(tmpdir(), 'dsh-nowledge-mem-'))
   const file = join(staging, 'thread.json')
   try {
-    await writeFile(file, JSON.stringify(payload), { mode: 0o600 })
-    const importArgs = [
-      't',
-      'import',
-      '--file',
+    const expectedMessageCount = cursor !== undefined && !delta.reset ? cursor.count : undefined
+    let importArgs = buildThreadImportArgs({
       file,
-      '--source',
-      config.sourceApp,
-      '--id',
-      stableThreadId(String(session.header.id)),
-      '--title',
-      payload.title,
-    ]
-    if (config.spaceId !== undefined) importArgs.push('--space-id', config.spaceId)
-    if (config.agentId !== undefined) importArgs.push('--agent-id', config.agentId)
-    const result = await runNmem(ctx, config, importArgs, undefined, true, undefined, session)
-    return successfulStdout(result) !== undefined
+      sourceApp: config.sourceApp,
+      sessionId,
+      payload,
+      spaceId: config.spaceId,
+      agentId: config.agentId,
+      expectedMessageCount,
+    })
+    await writeFile(file, JSON.stringify(payload), { mode: 0o600 })
+    let result = await runNmem(ctx, config, importArgs, undefined, true, undefined, session)
+    let acknowledgement = importResultAcknowledgement(
+      result,
+      expectedMessageCount !== undefined,
+    )
+    if (acknowledgement.status === 'conflict' && expectedMessageCount !== undefined) {
+      const reconciliation = capture.deltaFrom(-1)
+      if (reconciliation === undefined) return undefined
+      delta = reconciliation
+      payload = reconciliation.payload
+      importArgs = buildThreadImportArgs({
+        file,
+        sourceApp: config.sourceApp,
+        sessionId,
+        payload,
+        spaceId: config.spaceId,
+        agentId: config.agentId,
+      })
+      await writeFile(file, JSON.stringify(payload), { mode: 0o600 })
+      result = await runNmem(ctx, config, importArgs, undefined, true, undefined, session)
+      acknowledgement = importResultAcknowledgement(result, false)
+    }
+    if (acknowledgement.status !== 'acknowledged') return undefined
+    return {
+      seq: delta.acknowledgedSeq,
+      count: acknowledgement.messageCount,
+      title,
+    }
   } finally {
     await rm(staging, { recursive: true, force: true })
   }
@@ -461,7 +348,7 @@ async function importSession(ctx, config, session) {
 
 export function apply(ctx, config = {}) {
   const resolved = resolveConfig(config)
-  const syncedSeq = new WeakMap()
+  const syncedCursor = new WeakMap()
   const syncTail = new WeakMap()
 
   ctx.on('agent/pre-step', async ({ agent, signal }, next) => {
@@ -489,12 +376,6 @@ export function apply(ctx, config = {}) {
   }, { prepend: true })
 
   const enqueueSync = session => {
-    const latestSurfaceSeq = [...session.events]
-      .reverse()
-      .find(event => event.type === 'user/message'
-        || event.type === 'assistant/message'
-        || event.type === 'tool/result')?.seq
-    if (latestSurfaceSeq === undefined || latestSurfaceSeq <= (syncedSeq.get(session) ?? -1)) return
     const previous = syncTail.get(session) ?? Promise.resolve()
     const next = previous
       .catch(() => undefined)
@@ -508,7 +389,13 @@ export function apply(ctx, config = {}) {
             session,
             error => warn(ctx, `nowledge-mem: DSH session flush failed before transcript import: ${errorMessage(error)}`),
           )
-          if (await importSession(ctx, resolved, session)) syncedSeq.set(session, latestSurfaceSeq)
+          const acknowledgedCursor = await importSession(
+            ctx,
+            resolved,
+            session,
+            syncedCursor.get(session),
+          )
+          if (acknowledgedCursor !== undefined) syncedCursor.set(session, acknowledgedCursor)
         } catch (error) {
           warn(ctx, `nowledge-mem: turn-end transcript import failed: ${errorMessage(error)}`)
         }
