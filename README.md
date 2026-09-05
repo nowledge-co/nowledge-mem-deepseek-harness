@@ -32,7 +32,7 @@ nmem config mcp show --host deepseek-harness
 The bundle connects to the local Mem MCP endpoint by default:
 
 ```text
-http://127.0.0.1:14242/mcp/
+http://127.0.0.1:14242/mcp
 ```
 
 For Nowledge Cloud or another remote Mem, set:
@@ -63,6 +63,7 @@ The bundle accepts these row config fields in a later `cordis.patch.yml` overrid
     contextOnSessionStart: true
     recallOnPrompt: true
     syncOnTurnEnd: true
+    allowDangerFullAccessRetry: false
     recallLimit: 8
     spaceId: my-space-id
     agentId: deepseek-harness
@@ -99,6 +100,15 @@ Mem MCP tools are registered through DSH's MCP bridge under the `nowledge_mem` n
 ### Thread Capture
 
 After each completed DSH turn, the plugin serializes user, assistant, and tool-result events, skips its own injected context messages, and imports the transcript into Mem as `source=deepseek-harness`.
+
+### Sandbox Compatibility Retry
+
+The plugin does not retry a sandbox-unavailable `nmem` command with
+`danger-full-access` by default. An operator who explicitly accepts that wider
+access may set `allowDangerFullAccessRetry: true` in the `nowledge-mem` plugin
+config. Even with that opt-in, the retry runs only when the DSH host provides
+`ctx.sandboxPolicy` and resolves the requested policy; otherwise it fails
+closed and logs why the retry was skipped.
 
 ## Known Limitations
 
