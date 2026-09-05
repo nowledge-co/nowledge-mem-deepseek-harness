@@ -1,5 +1,5 @@
 /**
- * Community Nowledge Mem bundle for DeepSeek Harness.
+ * Nowledge Mem bundle for DeepSeek Harness.
  *
  * The plugin uses DSH-native Cordis events instead of patching the official
  * DeepSeek Harness repository: `agent/pre-step` injects durable Mem context
