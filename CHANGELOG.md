@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5
+
+- Restores turn-end capture on DeepSeek Harness 0.1.2 and newer by reading one
+  stable `snapshotEvents()` view per import attempt. Older supported hosts keep
+  an explicit `events` fallback; missing or broken event APIs now surface a
+  diagnosable compatibility error instead of an empty successful sync.
+
 ## 0.1.4
 
 - Flushes DSH write-behind session persistence before exporting a completed
