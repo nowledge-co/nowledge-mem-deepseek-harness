@@ -22,7 +22,7 @@ import {
   runShellWithHostSandboxRetry,
   warn,
 } from './sandbox-retry.js'
-import { importAcknowledgement } from './session-delta.js'
+import { importResultAcknowledgement } from './session-delta.js'
 import { captureSession } from './session-capture.js'
 import {
   boundText,
@@ -314,10 +314,10 @@ async function importSession(ctx, config, session, cursor) {
     })
     await writeFile(file, JSON.stringify(payload), { mode: 0o600 })
     let result = await runNmem(ctx, config, importArgs, undefined, true, undefined, session)
-    let stdout = successfulStdout(result)
-    let acknowledgement = stdout === undefined
-      ? { status: 'failed' }
-      : importAcknowledgement(stdout, expectedMessageCount !== undefined)
+    let acknowledgement = importResultAcknowledgement(
+      result,
+      expectedMessageCount !== undefined,
+    )
     if (acknowledgement.status === 'conflict' && expectedMessageCount !== undefined) {
       const reconciliation = capture.deltaFrom(-1)
       if (reconciliation === undefined) return undefined
@@ -333,10 +333,7 @@ async function importSession(ctx, config, session, cursor) {
       })
       await writeFile(file, JSON.stringify(payload), { mode: 0o600 })
       result = await runNmem(ctx, config, importArgs, undefined, true, undefined, session)
-      stdout = successfulStdout(result)
-      acknowledgement = stdout === undefined
-        ? { status: 'failed' }
-        : importAcknowledgement(stdout, false)
+      acknowledgement = importResultAcknowledgement(result, false)
     }
     if (acknowledgement.status !== 'acknowledged') return undefined
     return {

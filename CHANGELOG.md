@@ -6,6 +6,8 @@
   stable `snapshotEvents()` view per import attempt. Older supported hosts keep
   an explicit `events` fallback; missing or broken event APIs now surface a
   diagnosable compatibility error instead of an empty successful sync.
+- Preserves structured checkpoint-conflict output from a non-zero `nmem`
+  import so the existing one-shot full reconciliation can actually run.
 
 ## 0.1.4
 
