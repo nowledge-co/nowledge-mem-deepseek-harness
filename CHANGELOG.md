@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.6
+
+- Adds a per-session Nowledge Mem switch in the Web composer, default on.
+  Disabling a session skips Context Bundle injection, prompt-time recall, and
+  turn-end capture, and denies `mcp__nowledge_mem__*` tool calls for that
+  session. Child sessions inherit a parent override until they have their own.
+- The switch is mounted through a composer Tools host: a single item stays a
+  chip; later session-scoped toggles can join `conversation.input.tools.menu`
+  and the host collapses into a dropdown.
+
 ## 0.1.5
 
 - Restores turn-end capture on DeepSeek Harness 0.1.2 and newer by reading one

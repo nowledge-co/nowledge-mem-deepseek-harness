@@ -15,6 +15,7 @@
         contextOnSessionStart: true
         recallOnPrompt: true
         syncOnTurnEnd: true
+        sessionEnabledByDefault: true
 
     - id: nowledge-mem-mcp
       name: '@deepseek-ai/dsh-mcp-client'

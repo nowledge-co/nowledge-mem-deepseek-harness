@@ -49,6 +49,7 @@ export NMEM_API_KEY="<mem-api-key>"
 - Adds the Mem MCP server through DSH's reconnecting `@deepseek-ai/dsh-mcp-client`, so tools appear as `mcp__nowledge_mem__...`.
 - Imports the real DSH surface transcript after completed turns with `nmem t import --source deepseek-harness`.
 - Stamps CLI imports with `NMEM_IMPORT_ORIGIN=deepseek-harness`.
+- On Web, puts a per-session **Mem** switch in the composer tool row (default on). Turn it off to skip context, recall, capture, and Mem MCP tools for that session only.
 
 ## Configuration
 
@@ -63,6 +64,7 @@ The bundle accepts these row config fields in a later `cordis.patch.yml` overrid
     contextOnSessionStart: true
     recallOnPrompt: true
     syncOnTurnEnd: true
+    sessionEnabledByDefault: true
     allowDangerFullAccessRetry: false
     recallLimit: 8
     spaceId: my-space-id
@@ -97,6 +99,18 @@ The model sees a bounded recall message with memory titles, source hints, scores
 
 Mem MCP tools are registered through DSH's MCP bridge under the `nowledge_mem` namespace. DSH currently bridges MCP tools only; MCP resources and prompts are not surfaced by the Harness client.
 
+### Per-session switch
+
+Web sessions get a **Mem** chip on the left of the composer, next to the shipped access/plan chrome. It is on by default. Turning it off for a session:
+
+- skips Context Bundle injection and prompt-time recall
+- skips turn-end transcript import
+- denies `mcp__nowledge_mem__*` tool calls for that agent
+
+The choice is stored under `$DSH_HOME/nowledge-mem/session-enabled.json` and kept for that session id across reloads. Subagent sessions inherit a parent override until they have their own.
+
+The chip is registered through a small Tools host (`conversation.input.left` id `composer-tools`) that declares `conversation.input.tools.menu`. One item renders as the Mem chip. If other plugins later register more items into that menu slot, the host collapses into a Tools dropdown instead of crowding the composer row.
+
 ### Thread Capture
 
 After each completed DSH turn, the plugin serializes user, assistant, and tool-result events, skips its own injected context messages, and imports the transcript into Mem as `source=deepseek-harness`.
@@ -109,6 +123,15 @@ access may set `allowDangerFullAccessRetry: true` in the `nowledge-mem` plugin
 config. Even with that opt-in, the retry runs only when the DSH host provides
 `ctx.sandboxPolicy` and resolves the requested policy; otherwise it fails
 closed and logs why the retry was skipped.
+
+## Development
+
+```sh
+npm test
+npm run build:client
+```
+
+Rebuild `client.js` after changing files under `src/client/`. The Web chip is a committed DSH client bundle so `dsh plugin add github:...` does not need a build step.
 
 ## Known Limitations
 

@@ -28,6 +28,12 @@ import {
   boundText,
   buildThreadImportArgs,
 } from './thread-import.js'
+import {
+  createSessionEnableStore,
+  sessionEnableFilePath,
+} from './session-enable.js'
+import { installSessionEnableRoutes } from './session-enable-http.js'
+import { attachSessionEnable, lookupSession } from './session-gate.js'
 
 export const name = 'nowledge-mem'
 export const inject = ['agents', 'sessions', 'shell']
@@ -49,6 +55,8 @@ export const Config = z.object({
   contextOnSessionStart: z.boolean(),
   recallOnPrompt: z.boolean(),
   syncOnTurnEnd: z.boolean(),
+  sessionEnabledByDefault: z.boolean(),
+  persistSessionEnable: z.boolean(),
   allowDangerFullAccessRetry: z.boolean(),
   promptRecallPattern: z.string(),
   recallLimit: z.number(),
@@ -84,6 +92,8 @@ function resolveConfig(config = {}) {
     contextOnSessionStart: config.contextOnSessionStart ?? true,
     recallOnPrompt: config.recallOnPrompt ?? true,
     syncOnTurnEnd: config.syncOnTurnEnd ?? true,
+    sessionEnabledByDefault: config.sessionEnabledByDefault ?? true,
+    persistSessionEnable: config.persistSessionEnable ?? true,
     allowDangerFullAccessRetry: config.allowDangerFullAccessRetry ?? false,
     promptRecallPattern: new RegExp(config.promptRecallPattern ?? DEFAULT_PROMPT_RECALL_PATTERN, 'iu'),
     recallLimit: config.recallLimit ?? DEFAULT_RECALL_LIMIT,
@@ -350,10 +360,29 @@ export function apply(ctx, config = {}) {
   const resolved = resolveConfig(config)
   const syncedCursor = new WeakMap()
   const syncTail = new WeakMap()
+  const store = createSessionEnableStore({
+    defaultEnabled: resolved.sessionEnabledByDefault,
+    filePath: resolved.persistSessionEnable ? sessionEnableFilePath() : undefined,
+    warn: message => warn(ctx, message),
+  })
+  void store.load()
+  const { sessionIsEnabled } = attachSessionEnable(ctx, store)
+
+  if (typeof ctx.inject === 'function') {
+    ctx.inject(['webServer'], () => {
+      const mount = () => installSessionEnableRoutes(ctx.webServer, store, id => lookupSession(ctx, id))
+      if (typeof ctx.effect === 'function') {
+        ctx.effect(mount, 'nowledge-mem: session-enable routes')
+      } else {
+        mount()
+      }
+    })
+  }
 
   ctx.on('agent/pre-step', async ({ agent, signal }, next) => {
     const decision = await next()
     if (decision.kind === 'reject' || signal.aborted) return decision
+    if (!sessionIsEnabled(agent.session)) return decision
     try {
       const additions = []
       if (resolved.contextOnSessionStart && !hasContextBundle(agent.session, name)) {
@@ -376,6 +405,7 @@ export function apply(ctx, config = {}) {
   }, { prepend: true })
 
   const enqueueSync = session => {
+    if (!sessionIsEnabled(session)) return
     const previous = syncTail.get(session) ?? Promise.resolve()
     const next = previous
       .catch(() => undefined)
