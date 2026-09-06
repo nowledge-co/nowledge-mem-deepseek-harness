@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.7
+
+- Mounts the composer session-switch HTTP routes on the injected `webServer`
+  scope. Using the outer plugin `ctx.webServer` left `/__nowledge-mem/session-enable`
+  unregistered, so the Web chip painted red on a 404.
+
 ## 0.1.6
 
 - Adds a per-session Nowledge Mem switch in the Web composer, default on.

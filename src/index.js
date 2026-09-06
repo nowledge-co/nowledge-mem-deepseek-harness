@@ -369,10 +369,15 @@ export function apply(ctx, config = {}) {
   const { sessionIsEnabled } = attachSessionEnable(ctx, store)
 
   if (typeof ctx.inject === 'function') {
-    ctx.inject(['webServer'], () => {
-      const mount = () => installSessionEnableRoutes(ctx.webServer, store, id => lookupSession(ctx, id))
-      if (typeof ctx.effect === 'function') {
-        ctx.effect(mount, 'nowledge-mem: session-enable routes')
+    ctx.inject(['webServer'], scope => {
+      const server = scope.webServer
+      if (typeof server?.register !== 'function') {
+        warn(ctx, 'nowledge-mem: webServer is present but has no register(); session switch HTTP is unavailable')
+        return
+      }
+      const mount = () => installSessionEnableRoutes(server, store, id => lookupSession(ctx, id))
+      if (typeof scope.effect === 'function') {
+        scope.effect(mount, 'nowledge-mem: session-enable routes')
       } else {
         mount()
       }

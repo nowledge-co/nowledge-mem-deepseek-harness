@@ -8,7 +8,13 @@ export function sessionEnableUrl(sessionId) {
 }
 
 async function readSnapshot(response) {
-  const snapshot = await response.json()
+  const text = await response.text()
+  let snapshot
+  try {
+    snapshot = text === '' ? undefined : JSON.parse(text)
+  } catch {
+    throw new Error(response.ok ? 'invalid-json' : `HTTP ${response.status}`)
+  }
   if (!response.ok || snapshot?.ok !== true) {
     const message = typeof snapshot?.error === 'string' ? snapshot.error : `HTTP ${response.status}`
     throw new Error(message)

@@ -10,7 +10,7 @@ import {
   COMPOSER_TOOLS_MENU_SLOT,
 } from '../src/constants.js'
 import { isMemToolName, shouldDenyMemTool } from '../src/mcp-tools.js'
-import { sessionEnableUrl } from '../src/client/api.js'
+import { fetchSessionEnable, sessionEnableUrl } from '../src/client/api.js'
 
 test('one tool item stays a chip; two or more become a dropdown', () => {
   assert.equal(composerToolsLayout(0), 'hidden')
@@ -30,6 +30,13 @@ test('the session-enable URL encodes the session id', () => {
   assert.equal(
     sessionEnableUrl('sess 1'),
     '/__nowledge-mem/session-enable?sessionId=sess+1',
+  )
+})
+
+test('fetchSessionEnable maps an empty 404 to HTTP 404', async () => {
+  await assert.rejects(
+    () => fetchSessionEnable('sess-1', async () => new Response('', { status: 404 })),
+    /HTTP 404/,
   )
 })
 
