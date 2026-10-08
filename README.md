@@ -29,6 +29,12 @@ nmem status
 nmem config mcp show --host deepseek-harness
 ```
 
+The adapter supports DSH 0.1.5-rc.2, 0.1.7-rc.1, and 0.2.1-alpha.1. It uses
+`shell.execute(...).result()` on current hosts and retains the legacy
+`shell.run()` fallback. Injected messages use `source.kind: "plugin:nowledge-mem"`,
+matching DSH's v3-to-v4 migration; existing legacy snapshots are still recognized.
+Restart DSH after replacing an installed plugin version.
+
 The bundle connects to the local Mem MCP endpoint by default:
 
 ```text
@@ -120,3 +126,23 @@ closed and logs why the retry was skipped.
 ## Community Position
 
 The canonical public repository is `nowledge-co/nowledge-mem-deepseek-harness`, tagged with `dsh-plugin` for DeepSeek Harness ecosystem discovery. The `community` repository keeps a registry/index mirror for Nowledge Mem surfaces.
+
+## Development
+
+Install development dependencies before running the regression suite:
+
+```sh
+npm ci
+npm run lint
+npm test
+```
+
+The plugin tests exercise the entry point with DSH 0.2.1-alpha.1's real message
+and Session implementations and validate context and recall in both durable
+user-message and inbox-splice rows using the official v4 admission validator.
+CLI responses and shell execution are deterministic test doubles; a live DSH
+and Mem smoke test is still required to verify an installed release.
+
+GitHub Actions runs ESLint and tests on every pull request and push to `main`.
+The test matrix covers Ubuntu and Windows with Node.js 24 and DSH 0.1.7-rc.1
+and 0.2.1-alpha.1, and checks the npm package contents with `npm pack --dry-run`.
