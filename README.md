@@ -132,7 +132,8 @@ The canonical public repository is `nowledge-co/nowledge-mem-deepseek-harness`, 
 Install development dependencies before running the regression suite:
 
 ```sh
-npm install
+npm ci
+npm run lint
 npm test
 ```
 
@@ -141,3 +142,7 @@ and Session implementations and validate context and recall in both durable
 user-message and inbox-splice rows using the official v4 admission validator.
 CLI responses and shell execution are deterministic test doubles; a live DSH
 and Mem smoke test is still required to verify an installed release.
+
+GitHub Actions runs ESLint and tests on every pull request and push to `main`.
+The test matrix covers Ubuntu and Windows with Node.js 24 and DSH 0.1.7-rc.1
+and 0.2.1-alpha.1, and checks the npm package contents with `npm pack --dry-run`.

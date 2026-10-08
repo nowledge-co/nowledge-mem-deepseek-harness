@@ -11,6 +11,8 @@
 - Explicitly admits the tested DSH and Cordis preview versions in optional
   peer ranges and adds regression coverage using the host's message, Session,
   and v4 admission implementations.
+- Adds ESLint and GitHub Actions CI with Ubuntu/Windows compatibility tests
+  for DSH 0.1.7-rc.1 and 0.2.1-alpha.1, plus npm package validation.
 
 ## 0.1.5
 
