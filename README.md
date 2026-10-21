@@ -144,5 +144,5 @@ CLI responses and shell execution are deterministic test doubles; a live DSH
 and Mem smoke test is still required to verify an installed release.
 
 GitHub Actions runs ESLint and tests on every pull request and push to `main`.
-The test matrix covers Ubuntu and Windows with Node.js 24 and DSH 0.1.7-rc.1
-0.2.1-alpha.1, and 0.2.1-rc.2, and checks the npm package contents with `npm pack --dry-run`.
+The test matrix covers Ubuntu and Windows with Node.js 24 and DSH 0.1.7-rc.1,
+0.2.1-alpha.1, and 0.2.1-rc.2. It also checks the npm package contents with `npm pack --dry-run`.
