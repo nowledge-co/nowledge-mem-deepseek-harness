@@ -42,6 +42,8 @@ jobs:
             cordis: 4.0.4
           - dsh: 0.2.1-alpha.1
             cordis: 4.0.5-alpha.1
+          - dsh: 0.2.1-rc.2
+            cordis: 4.0.5
     defaults:
       run:
         shell: bash
@@ -54,8 +56,8 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
-      - name: Install DSH 0.1.7 compatibility baseline
-        if: matrix.host.dsh == '0.1.7-rc.1'
+      - name: Install DSH host compatibility baseline
+        if: matrix.host.dsh != '0.2.1-alpha.1'
         run: >-
           npm install --ignore-scripts --no-save --no-package-lock
           @deepseek-ai/cordis@${{ matrix.host.cordis }}

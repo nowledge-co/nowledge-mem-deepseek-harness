@@ -29,7 +29,7 @@ nmem status
 nmem config mcp show --host deepseek-harness
 ```
 
-The adapter supports DSH 0.1.5-rc.2, 0.1.7-rc.1, and 0.2.1-alpha.1. It uses
+The adapter supports DSH 0.1.5-rc.2, 0.1.7-rc.1, 0.2.1-alpha.1, and 0.2.1-rc.2. It uses
 `shell.execute(...).result()` on current hosts and retains the legacy
 `shell.run()` fallback. Injected messages use `source.kind: "plugin:nowledge-mem"`,
 matching DSH's v3-to-v4 migration; existing legacy snapshots are still recognized.
@@ -145,4 +145,4 @@ and Mem smoke test is still required to verify an installed release.
 
 GitHub Actions runs ESLint and tests on every pull request and push to `main`.
 The test matrix covers Ubuntu and Windows with Node.js 24 and DSH 0.1.7-rc.1
-and 0.2.1-alpha.1, and checks the npm package contents with `npm pack --dry-run`.
+0.2.1-alpha.1, and 0.2.1-rc.2, and checks the npm package contents with `npm pack --dry-run`.
