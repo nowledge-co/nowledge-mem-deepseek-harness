@@ -105,7 +105,23 @@ Mem MCP tools are registered through DSH's MCP bridge under the `nowledge_mem` n
 
 ### Thread Capture
 
-After each completed DSH turn, the plugin serializes user, assistant, and tool-result events, skips its own injected context messages, and imports the transcript into Mem as `source=deepseek-harness`.
+After each completed DSH turn, the plugin imports human input and assistant
+reply text into Mem as `source=deepseek-harness`. DSH marks actual user input
+with `source.kind: "user"`; user-role context from other producers (runtime,
+clock, skills, Mem or other plugins) is not a human prompt. Assistant steps
+containing tool calls, including their intermediate narration, tool results,
+reasoning blocks and execution metadata are not conversation text and are not
+stored as Thread messages. Image blocks retain an attachment placeholder, not
+image bytes. Visible text is preserved verbatim within the configured size cap;
+the plugin does not summarize or rewrite answers.
+
+Updating the plugin changes future captures; it does not delete or rewrite
+previously imported noisy messages. Stable identities still prevent new copies
+of unchanged conversation messages. Reopening an older polluted session may
+report an import conflict if an existing message with the same identity contains
+execution text: do not delete the Thread or change its identity to force a
+retry. Review a scoped cleanup/export with support first. New sessions can be
+used to verify the updated capture without touching old data.
 
 ### Sandbox Compatibility Retry
 
