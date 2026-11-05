@@ -16,6 +16,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { DEFAULT_PROMPT_RECALL_PATTERN, shouldRecallForPrompt } from './recall.js'
 import { hasContextBundle } from './context.js'
 import { isPluginSource } from './message-source.js'
+import { shellCommand, shellQuote } from './shell-quote.js'
 import { flushBeforeImport } from './session-flush.js'
 import {
   errorMessage,
@@ -108,10 +109,7 @@ function resolveConfig(config = {}) {
   return resolved
 }
 
-export function shellQuote(value) {
-  if (/^[A-Za-z0-9_./:=@%+-]+$/.test(value)) return value
-  return `'${value.replaceAll("'", "'\\''")}'`
-}
+export { shellQuote }
 
 function envFor(config, includeImportOrigin) {
   const env = {}
@@ -125,7 +123,7 @@ function envFor(config, includeImportOrigin) {
 export { isSandboxUnavailableError }
 
 async function runNmem(ctx, config, args, signal, includeImportOrigin, stdin, session) {
-  const command = [config.cliPath, ...args].map(shellQuote).join(' ')
+  const command = shellCommand(config.cliPath, args)
   const request = {
     command,
     timeoutMs: config.commandTimeoutMs,

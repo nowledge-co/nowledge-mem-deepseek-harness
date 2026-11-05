@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Quotes nmem arguments for PowerShell on Windows. Text with an apostrophe or a
+  curly quote no longer makes the search or the Thread import fail or get split.
+
 ## 0.1.7
 
 - Captures human input and assistant reply text instead of the model execution
