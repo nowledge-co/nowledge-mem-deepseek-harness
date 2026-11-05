@@ -9,6 +9,8 @@
 - English recall keywords match whole words and their plural or verb forms, so
   `mem` no longer fires on "meme", "member" or "memo", nor `prior` on
   "priority". Chinese keywords still match as substrings.
+- Quotes nmem arguments for PowerShell on Windows. Text with an apostrophe or a
+  curly quote no longer makes the search or the Thread import fail or get split.
 
 ## 0.1.7
 
