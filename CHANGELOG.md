@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.8
+
+- Admits the tested DSH 0.2.1-rc.3, 0.2.1-rc.5, and 0.2.2-rc.1 host packages
+  without an unsafe version exemption, with compatibility coverage on Ubuntu
+  and Windows.
+
 ## 0.1.7
 
 - Captures human input and assistant reply text instead of the model execution
