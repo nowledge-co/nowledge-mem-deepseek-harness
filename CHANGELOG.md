@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Admits the DSH 0.2.2-rc.2 host packages without an unsafe version
+  exemption. Neighboring previews and GA releases stay rejected.
+
 ## 0.1.7
 
 - Captures human input and assistant reply text instead of the model execution
