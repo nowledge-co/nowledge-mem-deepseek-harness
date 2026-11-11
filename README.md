@@ -97,6 +97,15 @@ When the user asks to continue, remember, review previous work, ship a release, 
 nmem --json m search "<prompt>" -n 8
 ```
 
+The prompt is the text the user typed into that step: messages with
+`source.kind: "user"`, text blocks only. It decides whether recall runs and is
+the search query. Other user-role context entering the step (runtime context,
+background job notices, subagent reports, goal rounds, other plugins), tool
+results, reasoning and tool calls neither trigger recall nor join the query, so
+later steps of a tool-using turn do not search on tool output. English trigger
+keywords match whole words and their plural or verb forms (`mem` does not match
+"meme" or "member"); Chinese keywords match anywhere in the text.
+
 The model sees a bounded recall message with memory titles, source hints, scores, and content.
 
 ### MCP Tools

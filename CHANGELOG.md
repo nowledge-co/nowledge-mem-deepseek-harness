@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Prompt-time recall triggers and searches only on text the user typed
+  (`source.kind: "user"`). Runtime context, background job notices with their
+  output, subagent reports, goal rounds, other plugins' context, tool results
+  and reasoning no longer start a search or become its query.
+- English recall keywords match whole words and their plural or verb forms, so
+  `mem` no longer fires on "meme", "member" or "memo", nor `prior` on
+  "priority". Chinese keywords still match as substrings.
+
 ## 0.1.7
 
 - Captures human input and assistant reply text instead of the model execution

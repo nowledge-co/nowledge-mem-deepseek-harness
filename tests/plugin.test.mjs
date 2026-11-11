@@ -145,6 +145,49 @@ for (const kind of ['plugin', 'plugin:nowledge-mem']) {
   })
 }
 
+test('recall triggers and searches on what the user typed, not on host context or tool output', async () => {
+  const host = fixture({ contextOnSessionStart: false })
+  // Every one of these contains several default trigger words.
+  const runtimeContext = userMessage(
+    '<system-reminder>\nThe following information describes your current session. It replaces earlier versions of this context, including any retained in conversation summaries.\n</system-reminder>',
+    { kind: 'runtime-context' },
+  )
+  const jobNotice = userMessage(
+    'background job 3 (shell: npm test) finished with exit code 0. Output:\nok 1 - plugin keeps the previous thread history',
+    { kind: 'tool-jobs', form: 'notice', summary: 'npm test finished' },
+  )
+  const subagentReport = userMessage(
+    'Subagent "worker" finished. Its closing message:\nThe release regression is in the connector plugin.',
+    { kind: 'subagent-settled', form: 'notice', summary: 'worker finished' },
+  )
+  const toolResult = createToolResultMessage({
+    callId: 'call-1',
+    isError: false,
+    content: [{ type: 'text', text: 'memory: previous release decision for the plugin' }],
+  })
+  const assistantStep = createAssistantMessage({ source: { provider: 'deepseek', model: 'test' }, content: [
+    { type: 'reasoning', text: 'Recall the previous decision from memory.' },
+    { type: 'tool-call', id: 'call-2', name: 'shell', arguments: '{"command":"git log --grep=release"}' },
+  ] })
+
+  for (const messages of [
+    [runtimeContext],
+    [jobNotice],
+    [subagentReport],
+    [toolResult],
+    [assistantStep],
+    [userMessage('Calculate two plus two'), runtimeContext, jobNotice, toolResult],
+  ]) {
+    const decision = await host.preStep(messages)
+    assert.deepEqual(decision.messages, messages)
+  }
+  assert.deepEqual(host.requests.map(request => request.command), [])
+
+  await host.preStep([runtimeContext, userMessage('review the release decision'), jobNotice, toolResult])
+  assert.equal(host.requests.length, 1)
+  assert.match(host.requests[0].command, / m search 'review the release decision' -n 8$/u)
+})
+
 test('turn-end imports a real host session without own injections or an injected title', { timeout: 2_000 }, async () => {
   const host = fixture()
   const prompt = userMessage('review the previous release decision')
