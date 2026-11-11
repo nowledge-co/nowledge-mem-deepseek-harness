@@ -15,7 +15,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 
 import { DEFAULT_PROMPT_RECALL_PATTERN, shouldRecallForPrompt } from './recall.js'
 import { hasContextBundle } from './context.js'
-import { isPluginSource } from './message-source.js'
+import { isHumanInput } from './transcript.js'
 import { flushBeforeImport } from './session-flush.js'
 import {
   errorMessage,
@@ -173,15 +173,27 @@ export function blocksToText(blocks) {
     .join('\n')
 }
 
-function messageText(message) {
-  return blocksToText(message.content)
+function typedText(message) {
+  return message.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .filter(text => text.trim() !== '')
+    .join('\n')
 }
 
+/**
+ * The recall prompt is what the user typed into this step, and it is both the
+ * trigger and the search query. The step's other messages are not: user-role
+ * context from the host and other plugins (runtime context, background job
+ * notices with command output, subagent reports, goal rounds), tool results,
+ * and model reasoning or tool calls. Any of them can contain a trigger word,
+ * and on later steps of a tool-using turn they are usually all that enters.
+ */
 function proposedPromptText(messages, maxChars) {
   const text = messages
-    .filter(message => !isPluginSource(message.source, name))
-    .map(messageText)
-    .filter(part => part.trim() !== '')
+    .filter(isHumanInput)
+    .map(typedText)
+    .filter(part => part !== '')
     .join('\n\n')
     .trim()
   return boundText(text, maxChars)
