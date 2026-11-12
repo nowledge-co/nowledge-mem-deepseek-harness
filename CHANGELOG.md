@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+## 0.2.0
+
+- Explicitly forwards the configured Mem API key to nmem across the host's
+  credential scrub, restoring authenticated Cloud/remote CLI operations while
+  preserving pinned history credentials and intentional empty authentication.
+
+- Drains already queued turn capture during graceful unload so completed
+  headless sessions are imported before the host exits; qualified with a real
+  installed DSH launcher, tool turn and packed plugin.
+- A cancelled pre-step does not delay healthy startup context on the next turn;
+  dash-prefixed exact Space IDs remain CLI option values.
+
+- Adds human-only `/mem-backfill`: metadata listing, explicit selected-session
+  preview and one-use confirmation. No startup scan/upload; requires optional
+  DSH commands/sessionQuery services (qualified on 0.2.2-rc.2).
+- Pins the preview's CLI connection and exact Space for up to ten minutes;
+  preserves clean conversation projection and native identities, with bounded
+  selections, cancellation and per-session outcomes.
+- Serializes historical and automatic imports of the same DSH session within
+  the process; native reconciliation still guards concurrent external writers.
+
 ## 0.1.9
 
 - Retains recalled event/source dates, explicit saved-date fallback and later

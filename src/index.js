@@ -27,6 +27,7 @@ import {
 import { importResultAcknowledgement } from './session-delta.js'
 import { captureSession } from './session-capture.js'
 import { createSyncQueue } from './sync-queue.js'
+import { historyCommand } from './history.js'
 import {
   boundText,
   buildThreadImportArgs,
@@ -118,7 +119,13 @@ function resolveConfig(config = {}) {
 export { shellQuote }
 
 function envFor(config, includeImportOrigin) {
-  const env = {}
+  const env = { ...config.connectionEnv }
+  // DSH scrubs credential-shaped ambient variables before spawning commands.
+  // Opt in only the configured Mem key for this nmem invocation; a preview's
+  // pinned key (including deliberate empty auth) takes precedence.
+  if (env.NMEM_API_KEY === undefined && process.env.NMEM_API_KEY !== undefined) {
+    env.NMEM_API_KEY = process.env.NMEM_API_KEY
+  }
   if (includeImportOrigin) env.NMEM_IMPORT_ORIGIN = config.importOrigin
   if (config.spaceId !== undefined) env.NMEM_SPACE = config.spaceId
   if (config.agentId !== undefined) env.NMEM_AGENT_ID = config.agentId
@@ -364,7 +371,19 @@ export function buildThreadImportPayload(session, maxMessageChars, sourceApp = D
   }).deltaFrom(-1)?.payload
 }
 
-export async function importSession(ctx, config, session, cursor, signal) {
+const importLanes = new Map()
+
+export function importSession(ctx, config, session, cursor, signal) {
+  const id = String(session.header.id)
+  const previous = importLanes.get(id) ?? Promise.resolve()
+  const task = previous.catch(() => undefined).then(() => performImport(ctx, config, session, cursor, signal))
+  importLanes.set(id, task)
+  const retire = () => { if (importLanes.get(id) === task) importLanes.delete(id) }
+  void task.then(retire, retire)
+  return task
+}
+
+async function performImport(ctx, config, session, cursor, signal) {
   const capture = captureSession(session, {
     sourceApp: config.sourceApp,
     maxMessageChars: config.maxThreadMessageChars,
@@ -437,6 +456,31 @@ export async function importSession(ctx, config, session, cursor, signal) {
 
 export function apply(ctx, config = {}) {
   const resolved = resolveConfig(config)
+  // Optional capabilities: older hosts retain automatic capture and recall.
+  ctx.inject?.(['commands', 'sessionQuery'], child => {
+    child.commands.register(historyCommand(child, resolved, async (signal, spaceId) => {
+      const output = successfulStdout(await runNmem(child, resolved,
+        ['--json', 'config', 'mcp', 'show', '--host', 'deepseek-harness'], signal, false,
+      ))
+      const data = JSON.parse(output)
+      const url = new URL(data.apiUrl)
+      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('unsafe connection URL')
+      const headers = data.config?.mcpServers?.['nowledge-mem']?.headers
+      const key = headers?.['X-NMEM-API-Key'] ?? headers?.Authorization?.replace(/^Bearer /u, '') ?? ''
+      if (typeof key !== 'string' || (data.apiKeyConfigured === true && key === '')) throw new Error('cannot pin connection credentials')
+      const env = { NMEM_API_URL: data.apiUrl, NMEM_API_KEY: key }
+      const roster = JSON.parse(successfulStdout(await runNmem(child,
+        { ...resolved, spaceId: undefined, connectionEnv: { ...env, NMEM_SPACE: '' } },
+        ['--json', 'spaces', 'list'], signal, false,
+      )))
+      // Current Cloud CLI governance rows use space_id; App roster rows use id.
+      if (!Array.isArray(roster.spaces) || !roster.spaces.some(space =>
+        (space?.id ?? space?.space_id) === spaceId
+        && (space.state === undefined || space.state === 'active')
+      )) throw new Error('unknown exact Space ID')
+      return { url: data.apiUrl, env }
+    }, importSession))
+  })
   const contextFailures = new WeakMap()
   if (resolved.invalidRecallPattern) warn(ctx, 'nowledge-mem: invalid promptRecallPattern; using the default recall pattern')
 
@@ -450,6 +494,7 @@ export function apply(ctx, config = {}) {
         if (failure === undefined || Date.now() >= failure.retryAt) {
           let contextMessage
           try { contextMessage = await loadContextMessage(ctx, resolved, signal, agent.session) } catch { /* retry below */ }
+          if (signal.aborted) return decision
           if (contextMessage !== undefined) {
             additions.push(contextMessage)
             contextFailures.delete(agent.session)
@@ -484,6 +529,7 @@ export function apply(ctx, config = {}) {
   }, () => {
     warn(ctx, 'nowledge-mem: turn-end transcript import failed; retaining checkpoint; ensure DSH_HOME is readable outside sandbox /tmp')
   })
+  ctx.effect?.(() => () => enqueueSync.close())
 
   if (resolved.syncOnTurnEnd) {
     ctx.on('session/event', (session, event) => {
