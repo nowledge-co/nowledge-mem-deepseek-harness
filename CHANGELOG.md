@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 0.1.9
+
+- Retains recalled event/source dates, explicit saved-date fallback and later
+  update evidence already shipped in the community mirror's 0.1.8 rendering.
+
+- Keeps capture running past malformed event data, missing content/source and
+  invalid timestamps. Safe existing session IDs stay stable; opaque IDs use a
+  collision-resistant namespace instead of collapsing after sanitization.
+- Stages private import files under DSH_HOME (default ~/.dsh), outside Linux's
+  sandbox-hidden /tmp, and removes each payload after its attempt.
+- Reports content-free import failure categories and backs off failed context
+  loads and turn captures. A checkpoint conflict can reconcile once; an initial
+  FULL conflict is diagnosed without rewriting existing Threads.
+- Preserves host decision fields such as startsRequestSeries during injection.
+- Falls back to default recall matching when the optional custom regex is invalid.
+- Admits DSH 0.2.1-rc.3, 0.2.1-rc.5, 0.2.2-rc.1 and 0.2.2-rc.2 with an expanded
+  Windows/Linux test matrix; unknown previews remain excluded.
+
 - Prompt-time recall triggers and searches only on text the user typed
   (`source.kind: "user"`). Runtime context, background job notices with their
   output, subagent reports, goal rounds, other plugins' context, tool results
@@ -11,6 +29,8 @@
   "priority". Chinese keywords still match as substrings.
 - Quotes nmem arguments for PowerShell on Windows. Text with an apostrophe or a
   curly quote no longer makes the search or the Thread import fail or get split.
+- Passes flag-like search queries after -- and titles as --title=value so
+  user text cannot become a CLI option.
 
 ## 0.1.7
 
