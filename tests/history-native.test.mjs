@@ -33,6 +33,10 @@ test('native 0.2.2-rc.2 command registry and replay-validated query drive previe
         let body
         if (request.command.includes('config mcp show')) {
           body = { apiUrl: 'http://127.0.0.1:1', apiKeyConfigured: false }
+        } else if (request.command.includes('spaces list')) {
+          assert.equal(request.env.NMEM_API_URL, 'http://127.0.0.1:1')
+          assert.equal(request.env.NMEM_SPACE, '')
+          body = { spaces: [{ id: 'exact-space' }] }
         } else {
           assert.match(request.command, /--space-id exact-space/u)
           assert.equal(request.env.NMEM_API_URL, 'http://127.0.0.1:1')
@@ -53,6 +57,8 @@ test('native 0.2.2-rc.2 command registry and replay-validated query drive previe
     const agent = { id: owner.id, session: owner }
     const run = text => ctx.commands.execute(agent, `/mem-backfill ${text}`, [], new AbortController().signal)
     assert.match((await run('list')).result.text, /old-qa/u)
+    assert.equal((await run('preview unknown-space old-qa')).result.kind, 'error')
+    assert.equal(writes, 0)
     const preview = (await run('preview exact-space old-qa')).result
     assert.equal(preview.kind, 'success', preview.text)
     assert.equal(writes, 0)

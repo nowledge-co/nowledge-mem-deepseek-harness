@@ -106,6 +106,8 @@ export function historyCommand(ctx, config, resolveConnection, importSession, no
         forget(owner)
         const [spaceId, ...ids] = args.map(value => decodeURIComponent(value))
         if (spaceId.length > 1024 || ids.some(id => id.length > 1024) || new Set(ids).size !== ids.length) return { kind: 'error', text: 'Use one explicit Space ID and 1–10 distinct session IDs (max 1024 characters each).' }
+        const connection = await resolveConnection(signal, spaceId)
+        signal.throwIfAborted()
         const sessions = []
         for (const id of ids) {
           signal.throwIfAborted()
@@ -119,8 +121,6 @@ export function historyCommand(ctx, config, resolveConnection, importSession, no
             return { kind: 'error', text: `Could not prepare selected session ${encodeURIComponent(id)}; nothing imported; retry a smaller or readable selection.` }
           }
         }
-        const connection = await resolveConnection(signal)
-        signal.throwIfAborted()
         const token = randomBytes(16).toString('hex')
         const plan = { token, sessions, expiresAt: now() + TTL, config: { ...config, spaceId, connectionEnv: connection.env } }
         plans.set(owner, plan)
