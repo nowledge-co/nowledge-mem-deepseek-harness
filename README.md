@@ -239,6 +239,13 @@ user-message and inbox-splice rows using the official v4 admission validator.
 CLI responses and shell execution are deterministic test doubles; a live DSH
 and Mem smoke test is still required to verify an installed release.
 
+The dedicated installed-host CI lane additionally packs the plugin, installs it
+into an isolated DSH 0.2.2-rc.2 headless profile, runs a real bash tool turn
+against the official loopback mock model, and checks that clean transcript
+capture completes before host exit. That lane uses a fixture CLI receipt rather
+than a production Mem destination; separate App/Cloud qualification uses actual
+nmem and disposable backend stores. Neither test reads your regular DSH profile.
+
 GitHub Actions runs ESLint and tests on every pull request and push to `main`.
 The test matrix covers Ubuntu and Windows with Node.js 24 and DSH 0.1.7-rc.1,
 0.2.1-alpha.1, 0.2.1-rc.2, 0.2.1-rc.3, 0.2.1-rc.5, 0.2.2-rc.1 and 0.2.2-rc.2.
