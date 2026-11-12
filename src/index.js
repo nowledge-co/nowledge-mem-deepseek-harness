@@ -27,6 +27,7 @@ import {
 import { importResultAcknowledgement } from './session-delta.js'
 import { captureSession } from './session-capture.js'
 import { createSyncQueue } from './sync-queue.js'
+import { historyCommand } from './history.js'
 import {
   boundText,
   buildThreadImportArgs,
@@ -118,7 +119,7 @@ function resolveConfig(config = {}) {
 export { shellQuote }
 
 function envFor(config, includeImportOrigin) {
-  const env = {}
+  const env = { ...config.connectionEnv }
   if (includeImportOrigin) env.NMEM_IMPORT_ORIGIN = config.importOrigin
   if (config.spaceId !== undefined) env.NMEM_SPACE = config.spaceId
   if (config.agentId !== undefined) env.NMEM_AGENT_ID = config.agentId
@@ -364,7 +365,19 @@ export function buildThreadImportPayload(session, maxMessageChars, sourceApp = D
   }).deltaFrom(-1)?.payload
 }
 
-export async function importSession(ctx, config, session, cursor, signal) {
+const importLanes = new Map()
+
+export function importSession(ctx, config, session, cursor, signal) {
+  const id = String(session.header.id)
+  const previous = importLanes.get(id) ?? Promise.resolve()
+  const task = previous.catch(() => undefined).then(() => performImport(ctx, config, session, cursor, signal))
+  importLanes.set(id, task)
+  const retire = () => { if (importLanes.get(id) === task) importLanes.delete(id) }
+  void task.then(retire, retire)
+  return task
+}
+
+async function performImport(ctx, config, session, cursor, signal) {
   const capture = captureSession(session, {
     sourceApp: config.sourceApp,
     maxMessageChars: config.maxThreadMessageChars,
@@ -437,6 +450,21 @@ export async function importSession(ctx, config, session, cursor, signal) {
 
 export function apply(ctx, config = {}) {
   const resolved = resolveConfig(config)
+  // Optional capabilities: older hosts retain automatic capture and recall.
+  ctx.inject?.(['commands', 'sessionQuery'], child => {
+    child.commands.register(historyCommand(child, resolved, async signal => {
+      const output = successfulStdout(await runNmem(child, resolved,
+        ['--json', 'config', 'mcp', 'show', '--host', 'deepseek-harness'], signal, false,
+      ))
+      const data = JSON.parse(output)
+      const url = new URL(data.apiUrl)
+      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('unsafe connection URL')
+      const headers = data.config?.mcpServers?.['nowledge-mem']?.headers
+      const key = headers?.['X-NMEM-API-Key'] ?? headers?.Authorization?.replace(/^Bearer /u, '') ?? ''
+      if (typeof key !== 'string' || (data.apiKeyConfigured === true && key === '')) throw new Error('cannot pin connection credentials')
+      return { url: data.apiUrl, env: { NMEM_API_URL: data.apiUrl, NMEM_API_KEY: key } }
+    }, importSession))
+  })
   const contextFailures = new WeakMap()
   if (resolved.invalidRecallPattern) warn(ctx, 'nowledge-mem: invalid promptRecallPattern; using the default recall pattern')
 

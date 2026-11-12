@@ -133,6 +133,50 @@ execution text: do not delete the Thread or change its identity to force a
 retry. Review a scoped cleanup/export with support first. New sessions can be
 used to verify the updated capture without touching old data.
 
+### Explicit Historical Backfill
+
+On a host with `commands` and `sessionQuery` (qualified on DSH 0.2.2-rc.2),
+the bundle adds a **human slash command**, not an agent tool:
+
+```text
+/mem-backfill list
+/mem-backfill preview <exact-space-id> <session-id> [another-session-id]
+/mem-backfill apply <token-from-preview>
+/mem-backfill cancel
+```
+
+Use `nmem --json spaces list` to find the intended Space ID in your configured
+destination. Listing is metadata-only, at most 50 IDs per page; use
+`/mem-backfill list 50` for the next page. Select 1–10 sessions explicitly.
+Only persisted, top-level sessions whose workspace directory matches the current
+session are eligible; live-only, private-marked, subagent and other-workspace
+sessions are refused. The host query service supplies this profile's logical,
+replay-validated history; the plugin never walks profile directories. If an ID
+or Space contains whitespace, use percent encoding (listing already returns
+copyable encoded session IDs).
+
+Preview shows the exact destination address, Space, selected IDs, titles and
+clean message counts, and writes no transcript. It uses the effective nmem CLI
+connection, including persisted client settings; App, Access Anywhere and Cloud
+all use that same CLI path. Check the address and Space before confirming.
+The one-use token belongs to this human command session, expires in ten minutes,
+and freezes the selected conversation snapshot and connection privately in
+memory. It is never a durable credential or an authorization bypass. Applying
+does not include activity added after preview, change the automatic capture's
+Space, or clean old noisy Threads. The normal Mem key and Space authorization
+still applies to every write. Restarting/unloading the plugin discards previews.
+
+Each selected session is limited to 100,000 observed events and 2 MiB of clean
+snapshot data. Only human input and assistant replies survive; tools, reasoning,
+injected context and stream payloads do not. Apply reports each session's
+acknowledgement or failure; native identities make a repeated preview/apply
+converge rather than create a second Thread. A changed/older polluted Thread may
+still conflict and is left for deliberate inspection. An interrupted command
+can have committed earlier sessions (or the last timed-out import); preview
+again to reconcile safely. Cancellation prevents starting remaining sessions,
+but cannot undo a server transaction already committed. Hosts lacking either
+optional service keep normal capture/recall; no filesystem fallback runs.
+
 ### Sandbox Compatibility Retry
 
 Import payloads are private temporary files under
@@ -168,7 +212,7 @@ closed and logs why the retry was skipped.
 ## Known Limitations
 
 - DeepSeek Harness is in developer preview, so public package APIs may change.
-- Historical DSH sessions are not backfilled by this package yet; it captures new sessions while the plugin is active.
+- Historical capture requires the explicit preview/apply command above and the optional host services; no automatic bulk upload or old-data cleanup runs.
 - The DSH MCP bridge exposes tools only, so Nowledge Mem resources/prompts are not shown through MCP today.
 - Turn capture depends on the local `nmem` CLI being available in the DSH process environment.
 

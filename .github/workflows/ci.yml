@@ -72,5 +72,13 @@ jobs:
           @deepseek-ai/dsh-llm@${{ matrix.host.dsh }}
           @deepseek-ai/dsh-session@${{ matrix.host.dsh }}
           @deepseek-ai/dsh-session-format-v3-to-v4@${{ matrix.host.dsh }}
+      - name: Install optional historical-backfill SDK contracts
+        if: matrix.host.dsh == '0.2.2-rc.2'
+        run: >-
+          npm install --ignore-scripts --no-save --no-package-lock
+          @deepseek-ai/dsh-commands@0.2.2-rc.2
+          @deepseek-ai/dsh-session-query@0.2.2-rc.2
       - run: npm test
+        env:
+          DSH_HISTORY_NATIVE_TEST: ${{ matrix.host.dsh == '0.2.2-rc.2' }}
       - run: npm pack --dry-run

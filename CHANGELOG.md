@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.2.0
+
+- Adds human-only `/mem-backfill`: metadata listing, explicit selected-session
+  preview and one-use confirmation. No startup scan/upload; requires optional
+  DSH commands/sessionQuery services (qualified on 0.2.2-rc.2).
+- Pins the preview's CLI connection and exact Space for up to ten minutes;
+  preserves clean conversation projection and native identities, with bounded
+  selections, cancellation and per-session outcomes.
+- Serializes historical and automatic imports of the same DSH session within
+  the process; native reconciliation still guards concurrent external writers.
+
 ## 0.1.9
 
 - Retains recalled event/source dates, explicit saved-date fallback and later
