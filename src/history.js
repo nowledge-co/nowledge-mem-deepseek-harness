@@ -35,20 +35,22 @@ function cleanSnapshot(snapshot, id, cwd) {
 
 /** Human-only native command; no model tool, filesystem scan or startup upload. */
 export function historyCommand(ctx, config, resolveConnection, importSession, now = Date.now) {
-  const plans = new WeakMap()
+  let plans = new WeakMap()
   const busy = new WeakSet()
-  const controllers = new WeakMap(), active = new Set(), timers = new Set()
+  const controllers = new WeakMap(), active = new Map(), timers = new Set()
   const forget = owner => {
     const plan = plans.get(owner)
     if (plan !== undefined) { clearTimeout(plan.timer); timers.delete(plan.timer) }
     plans.delete(owner)
   }
   let disposed = false
-  ctx.on?.('dispose', () => {
+  ctx.effect?.(() => () => {
     disposed = true
-    for (const controller of active) controller.abort()
+    plans = new WeakMap()
+    for (const controller of active.keys()) controller.abort()
     for (const timer of timers) clearTimeout(timer)
     timers.clear()
+    return Promise.allSettled(active.values())
   })
   return {
     name: 'mem-backfill',
@@ -68,7 +70,8 @@ export function historyCommand(ctx, config, resolveConnection, importSession, no
       busy.add(owner)
       const controller = new AbortController()
       controllers.set(owner, controller)
-      active.add(controller)
+      const retired = Promise.withResolvers()
+      active.set(controller, retired.promise)
       const signal = AbortSignal.any([parentSignal, controller.signal])
       try {
         signal.throwIfAborted()
@@ -134,7 +137,7 @@ export function historyCommand(ctx, config, resolveConnection, importSession, no
         ].join('\n') }
       } catch {
         return { kind: 'error', text: signal.aborted ? 'Backfill cancelled; no additional session started.' : 'Backfill unavailable; check host services and nmem connection, then preview again.' }
-      } finally { busy.delete(owner); controllers.delete(owner); active.delete(controller) }
+      } finally { busy.delete(owner); controllers.delete(owner); active.delete(controller); retired.resolve() }
     },
   }
 }

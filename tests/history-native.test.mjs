@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { historyCommand } from '../src/history.js'
+import * as plugin from '../src/index.js'
+import { readFile } from 'node:fs/promises'
 
 test('native 0.2.2-rc.2 command registry and replay-validated query drive preview/apply', { skip: process.env.DSH_HISTORY_NATIVE_TEST !== 'true' ? 'qualified in the explicit latest-host CI lane' : false }, async () => {
   const { Context, Service } = await import('@deepseek-ai/cordis')
@@ -24,11 +25,31 @@ test('native 0.2.2-rc.2 command registry and replay-validated query drive previe
     await mount(FixturePersistence)
     await mount(SessionQuery)
     let writes = 0
-    const definition = historyCommand(ctx, { sourceApp: 'deepseek-harness', maxThreadMessageChars: 1000 },
-      async () => ({ url: 'http://127.0.0.1:1', env: {} }),
-      async (_ctx, _config, session) => { writes++; assert.equal(session.header.id, 'old-qa'); return { count: 1 } },
-    )
-    ctx.commands.register(definition)
+    class FixtureAgents extends Service { constructor(inner) { super(inner, 'agents') } }
+    class FixtureShell extends Service {
+      constructor(inner) { super(inner, 'shell') }
+      resolve(request) { return request }
+      async execute(request) {
+        let body
+        if (request.command.includes('config mcp show')) {
+          body = { apiUrl: 'http://127.0.0.1:1', apiKeyConfigured: false }
+        } else {
+          assert.match(request.command, /--space-id exact-space/u)
+          assert.equal(request.env.NMEM_API_URL, 'http://127.0.0.1:1')
+          const match = request.command.match(/--file (?:'([^']+)'|(\S+))/u)
+          const payload = JSON.parse(await readFile(match[1] ?? match[2], 'utf8'))
+          assert.deepEqual(payload.messages.map(row => row.content), ['Synthetic history question'])
+          writes++
+          body = { success: true, results: [{ success: true, message_count: 1 }] }
+        }
+        return { result: async () => ({ exitCode: 0, stdout: { text: JSON.stringify(body) } }) }
+      }
+    }
+    await mount(FixtureAgents)
+    await mount(FixtureShell)
+    const pluginFiber = ctx.plugin(plugin, { syncOnTurnEnd: false, contextOnSessionStart: false, recallOnPrompt: false })
+    fibers.push(pluginFiber)
+    await pluginFiber
     const agent = { id: owner.id, session: owner }
     const run = text => ctx.commands.execute(agent, `/mem-backfill ${text}`, [], new AbortController().signal)
     assert.match((await run('list')).result.text, /old-qa/u)
@@ -41,5 +62,7 @@ test('native 0.2.2-rc.2 command registry and replay-validated query drive previe
     const commandRuns = owner.snapshotEvents().filter(event => event.type === 'command/run')
     assert.ok(commandRuns.length > 0)
     assert.ok(commandRuns.every(event => event.data.args === undefined))
+    await pluginFiber.dispose()
+    assert.equal(ctx.commands.find(agent, 'mem-backfill'), undefined)
   } finally { for (const fiber of fibers.reverse()) await fiber.dispose() }
 })
