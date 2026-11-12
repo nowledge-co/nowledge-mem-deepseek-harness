@@ -136,7 +136,7 @@ export function historyCommand(ctx, config, resolveConnection, importSession, no
           `To authorize this upload within 10 minutes: /mem-backfill apply ${token}`,
         ].join('\n') }
       } catch {
-        return { kind: 'error', text: signal.aborted ? 'Backfill cancelled; no additional session started.' : 'Backfill unavailable; check host services and nmem connection, then preview again.' }
+        return { kind: 'error', text: signal.aborted ? 'Backfill cancelled; no additional session started.' : 'Backfill unavailable; check the exact Space ID, host services and nmem connection, then preview again.' }
       } finally { busy.delete(owner); controllers.delete(owner); active.delete(controller); retired.resolve() }
     },
   }
