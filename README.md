@@ -29,7 +29,8 @@ nmem status
 nmem config mcp show --host deepseek-harness
 ```
 
-The adapter supports DSH 0.1.5-rc.2, 0.1.7-rc.1, 0.2.1-alpha.1, and 0.2.1-rc.2. It uses
+The adapter supports DSH 0.1.5-rc.2, 0.1.7-rc.1, 0.2.1-alpha.1,
+0.2.1-rc.2, 0.2.1-rc.3, 0.2.1-rc.5, 0.2.2-rc.1 and 0.2.2-rc.2. It uses
 `shell.execute(...).result()` on current hosts and retains the legacy
 `shell.run()` fallback. Injected messages use `source.kind: "plugin:nowledge-mem"`,
 matching DSH's v3-to-v4 migration; existing legacy snapshots are still recognized.
@@ -97,6 +98,15 @@ When the user asks to continue, remember, review previous work, ship a release, 
 nmem --json m search "<prompt>" -n 8
 ```
 
+The prompt is the text the user typed into that step: messages with
+`source.kind: "user"`, text blocks only. It decides whether recall runs and is
+the search query. Other user-role context entering the step (runtime context,
+background job notices, subagent reports, goal rounds, other plugins), tool
+results, reasoning and tool calls neither trigger recall nor join the query, so
+later steps of a tool-using turn do not search on tool output. English trigger
+keywords match whole words and their plural or verb forms (`mem` does not match
+"meme" or "member"); Chinese keywords match anywhere in the text.
+
 The model sees a bounded recall message with memory titles, source hints, scores, and content.
 
 ### MCP Tools
@@ -124,6 +134,29 @@ retry. Review a scoped cleanup/export with support first. New sessions can be
 used to verify the updated capture without touching old data.
 
 ### Sandbox Compatibility Retry
+
+Import payloads are private temporary files under
+`$DSH_HOME/nowledge-mem/staging` (default `~/.dsh/nowledge-mem/staging`).
+Each attempt removes its payload in a `finally` block. Linux workspace-write
+sandboxes mount an empty `/tmp`; keep DSH_HOME outside `/tmp`, including symlink
+targets. A temporary DSH_HOME there is refused with a diagnostic rather than
+silently widening the sandbox. `nmem t import --stdin` accepts Markdown, not the
+structured JSON used for stable message IDs, so it is not an equivalent transport.
+
+Failed captures retain their last acknowledged checkpoint and retry on a later
+turn after exponential backoff (1 second, capped at 60 seconds). No background
+upload timer runs. A checkpointed append may retry once with a full transcript;
+an initial full import is already reconciliation and is not immediately repeated.
+Persistent conflicts need inspection of the existing Thread, not deletion or a
+new identity. Warnings distinguish timeout, process failure, invalid JSON and
+semantic rejection without printing payloads or raw shell error messages.
+Startup-context failures use the same backoff range independently of capture.
+Invalid custom recall patterns fall back to the standard pattern with a warning.
+
+Normal DSH session IDs keep their old Thread IDs. Previously lossy IDs (spaces,
+slashes or other punctuation) now use `deepseek-harness-~<sha256>`; any old Thread
+created from a sanitized ID is left untouched for explicit review, never migrated
+or deleted automatically.
 
 The plugin does not retry a sandbox-unavailable `nmem` command with
 `danger-full-access` by default. An operator who explicitly accepts that wider
@@ -161,4 +194,9 @@ and Mem smoke test is still required to verify an installed release.
 
 GitHub Actions runs ESLint and tests on every pull request and push to `main`.
 The test matrix covers Ubuntu and Windows with Node.js 24 and DSH 0.1.7-rc.1,
-0.2.1-alpha.1, and 0.2.1-rc.2. It also checks the npm package contents with `npm pack --dry-run`.
+0.2.1-alpha.1, 0.2.1-rc.2, 0.2.1-rc.3, 0.2.1-rc.5, 0.2.2-rc.1 and 0.2.2-rc.2.
+It also checks the package contents with `npm pack --dry-run`; installation is
+from Git, not an independently published npm release.
+
+Thanks to BBleae (晴猫) for the PowerShell and human-only recall fixes (#19, #26,
+#27), and vizmoe for qualifying newer host previews (#24).
