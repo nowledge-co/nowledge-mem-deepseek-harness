@@ -467,7 +467,11 @@ export function apply(ctx, config = {}) {
         { ...resolved, spaceId: undefined, connectionEnv: { ...env, NMEM_SPACE: '' } },
         ['--json', 'spaces', 'list'], signal, false,
       )))
-      if (!Array.isArray(roster.spaces) || !roster.spaces.some(space => space?.id === spaceId)) throw new Error('unknown exact Space ID')
+      // Current Cloud CLI governance rows use space_id; App roster rows use id.
+      if (!Array.isArray(roster.spaces) || !roster.spaces.some(space =>
+        (space?.id ?? space?.space_id) === spaceId
+        && (space.state === undefined || space.state === 'active')
+      )) throw new Error('unknown exact Space ID')
       return { url: data.apiUrl, env }
     }, importSession))
   })

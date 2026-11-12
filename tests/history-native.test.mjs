@@ -3,7 +3,8 @@ import test from 'node:test'
 import * as plugin from '../src/index.js'
 import { readFile } from 'node:fs/promises'
 
-test('native 0.2.2-rc.2 command registry and replay-validated query drive preview/apply', { skip: process.env.DSH_HISTORY_NATIVE_TEST !== 'true' ? 'qualified in the explicit latest-host CI lane' : false }, async () => {
+for (const spaceField of ['id', 'space_id']) {
+test(`native 0.2.2-rc.2 command/query preview/apply with ${spaceField} roster`, { skip: process.env.DSH_HISTORY_NATIVE_TEST !== 'true' ? 'qualified in the explicit latest-host CI lane' : false }, async () => {
   const { Context, Service } = await import('@deepseek-ai/cordis')
   const { default: SessionStore } = await import('@deepseek-ai/dsh-session')
   const { default: CommandRuntime } = await import('@deepseek-ai/dsh-commands')
@@ -36,7 +37,7 @@ test('native 0.2.2-rc.2 command registry and replay-validated query drive previe
         } else if (request.command.includes('spaces list')) {
           assert.equal(request.env.NMEM_API_URL, 'http://127.0.0.1:1')
           assert.equal(request.env.NMEM_SPACE, '')
-          body = { spaces: [{ id: 'exact-space' }] }
+          body = { spaces: [{ [spaceField]: 'exact-space' }] }
         } else {
           assert.match(request.command, /--space-id exact-space/u)
           assert.equal(request.env.NMEM_API_URL, 'http://127.0.0.1:1')
@@ -72,3 +73,4 @@ test('native 0.2.2-rc.2 command registry and replay-validated query drive previe
     assert.equal(ctx.commands.find(agent, 'mem-backfill'), undefined)
   } finally { for (const fiber of fibers.reverse()) await fiber.dispose() }
 })
+}
