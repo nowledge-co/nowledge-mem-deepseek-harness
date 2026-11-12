@@ -190,7 +190,9 @@ structured JSON used for stable message IDs, so it is not an equivalent transpor
 
 Failed captures retain their last acknowledged checkpoint and retry on a later
 turn after exponential backoff (1 second, capped at 60 seconds). No background
-upload timer runs. A checkpointed append may retry once with a full transcript;
+upload timer runs. Graceful plugin teardown drains already queued captures,
+including a completed headless turn; host forced-exit deadlines still apply.
+A checkpointed append may retry once with a full transcript;
 an initial full import is already reconciliation and is not immediately repeated.
 Persistent conflicts need inspection of the existing Thread, not deletion or a
 new identity. Warnings distinguish timeout, process failure, invalid JSON and

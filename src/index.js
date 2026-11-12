@@ -523,6 +523,7 @@ export function apply(ctx, config = {}) {
   }, () => {
     warn(ctx, 'nowledge-mem: turn-end transcript import failed; retaining checkpoint; ensure DSH_HOME is readable outside sandbox /tmp')
   })
+  ctx.effect?.(() => () => enqueueSync.close())
 
   if (resolved.syncOnTurnEnd) {
     ctx.on('session/event', (session, event) => {

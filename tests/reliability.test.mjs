@@ -147,3 +147,25 @@ test('queued turn-end failures back off rather than FULL-send on every notificat
   await enqueue(current)
   assert.equal(requests.length, 2)
 })
+
+test('plugin teardown drains already queued turn capture before returning', async () => {
+  const listeners = new Map(), disposers = [], entered = Promise.withResolvers(), flush = Promise.withResolvers()
+  let imports = 0
+  const ctx = {
+    on: (name, listener) => listeners.set(name, listener),
+    effect: setup => disposers.push(setup()),
+    sessions: { flush: async () => { entered.resolve(); await flush.promise } },
+    shell: { resolve: request => request, execute: async () => {
+      imports++
+      return { result: async () => ({ exitCode: 0, stdout: { text: '{"success":true,"results":[{"success":true,"message_count":1}]}' } }) }
+    } },
+  }
+  apply(ctx, { contextOnSessionStart: false, recallOnPrompt: false })
+  const current = session([event(0, 'user/message', user('Synthetic shutdown question'))])
+  listeners.get('session/event')(current, { type: 'turn/end' })
+  await entered.promise
+  const disposing = Promise.all(disposers.map(dispose => dispose()))
+  flush.resolve()
+  await disposing
+  assert.equal(imports, 1)
+})
