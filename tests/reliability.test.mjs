@@ -53,6 +53,26 @@ test('context failure backs off per session and reports a content-free diagnosti
   assert.equal(probe.warnings.length, 1)
 })
 
+test('cancelled pre-step does not back off a healthy context load on the next turn', async () => {
+  const listeners = new Map(), controller = new AbortController()
+  let calls = 0
+  const ctx = {
+    on: (name, listener) => listeners.set(name, listener),
+    shell: { resolve: r => r, execute: async () => ({ result: async () => {
+      calls++
+      if (calls === 1) { controller.abort(); return { exitCode: 0, aborted: true, stdout: { text: '' } } }
+      return { exitCode: 0, stdout: { text: '{"context":"synthetic"}' } }
+    } }) },
+  }
+  apply(ctx, { recallOnPrompt: false, syncOnTurnEnd: false })
+  const current = session([]), decision = { kind: 'enter', messages: [] }
+  const step = signal => listeners.get('agent/pre-step')({ agent: { session: current }, signal }, async () => decision)
+  assert.equal(await step(controller.signal), decision)
+  const next = await step(new AbortController().signal)
+  assert.equal(calls, 2)
+  assert.equal(next.messages.length, 1)
+})
+
 test('injection preserves host decision metadata', async () => {
   const probe = host({}, { exitCode: 0, signal: null, stdout: { text: '{"context":"synthetic"}' } })
   const decision = await probe.step({ kind: 'enter', startsRequestSeries: true, messages: [] })
