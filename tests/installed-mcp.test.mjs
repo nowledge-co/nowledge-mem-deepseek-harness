@@ -15,8 +15,22 @@ test('installed DSH MCP tools, resources and connection recovery', {
 }, async t => {
   const host = await installHost(t)
   const patch = join(host.root, 'mcp-qa.patch.yml')
+  const observer = join(host.root, 'mcp-lifecycle-observer.mjs')
+  // Headless JSON mode does not export ordinary host logs to its process
+  // streams. Observe the real supervisor without changing its behavior.
+  await writeFile(observer, [
+    'export function apply(ctx) {',
+    '  ctx.logger.exporter({ levels: { default: Infinity }, export(message) {',
+    '    const text = message.args.map(String).join(" ")',
+    '    if (text.includes("mcp-client(nowledge_mem)")) {',
+    '      if (text.includes("reconnected and re-synced tools")) process.stderr.write("NMEM_MCP_RECONNECTED\\n")',
+    '      if (text.includes("timed out")) process.stderr.write("NMEM_MCP_STARTUP_TIMED_OUT\\n")',
+    '    }',
+    '  } })',
+    '}',
+  ].join('\n'))
   // Exercise the installed bundle's MCP row and its default timeouts unchanged.
-  await writeFile(patch, '- id: session-title-llm\n  disabled: true\n- id: session-telemetry-otel\n  disabled: true\n- id: nowledge-mem\n  config:\n    contextOnSessionStart: false\n    recallOnPrompt: false\n    syncOnTurnEnd: false\n')
+  await writeFile(patch, `- id: session-title-llm\n  disabled: true\n- id: session-telemetry-otel\n  disabled: true\n- insert:\n    - id: mcp-lifecycle-observer\n      name: ${JSON.stringify(observer)}\n- id: nowledge-mem\n  config:\n    contextOnSessionStart: false\n    recallOnPrompt: false\n    syncOnTurnEnd: false\n`)
   const run = async (fixture, modelURL, observe) => {
     const result = await host.run([host.cli, 'headless', '--patch', patch, '--json', '--approval-policy', 'never', 'Read the synthetic memory fixture.'], {
       ...host.env, DEEPSEEK_API_KEY: 'synthetic-only', DEEPSEEK_BASE_URL: modelURL,
@@ -94,14 +108,14 @@ test('installed DSH MCP tools, resources and connection recovery', {
     })
     const result = await run(fixture, modelURL, chunk => {
       output += chunk
-      if (!reconnected && /reconnected and re-synced tools/u.test(output)) {
+      if (!reconnected && /NMEM_MCP_RECONNECTED/u.test(output)) {
         reconnected = true
         lifecycle.emit('reconnected')
       }
     })
     assert.ok(startupElapsed !== undefined)
     assert.ok(reconnected, result.stderr)
-    assert.match(output, /timed out/u)
+    assert.match(output, /NMEM_MCP_STARTUP_TIMED_OUT/u)
     assert.equal(result.results[0]?.status, 'completed', JSON.stringify(result.results))
     assert.match(result.results[0].result, /Synthetic resource memory/u)
     assert.ok(model.requests[1].body.tools.some(tool => tool.name === ping))
