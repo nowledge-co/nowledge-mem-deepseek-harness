@@ -286,3 +286,43 @@ from Git, not an independently published npm release.
 
 Thanks to BBleae (晴猫) for the PowerShell and human-only recall fixes (#19, #26,
 #27), and vizmoe for qualifying newer host previews (#24).
+
+## Bridge mailbox
+
+Set `NMEM_BRIDGE_INBOX_ON_START=1` and `NMEM_AGENT_CONTEXT` to an independently
+approved Cloud Context before starting DSH. The plugin adds one model-visible
+Bridge notice per live session, even when Memory is unavailable. It does not
+execute mailbox commands or consume mail itself. A notice does not replace the
+Working Memory snapshot or prevent a failed context load from retrying.
+
+The model uses the same CLI executable as native Memory operations: `cliPath`
+from the plugin config, then `NMEM_CLI_PATH`, then `nmem`. The Context's value
+and credentials are not included in the notice. The selected CLI and approved
+login must be accessible within the host's existing shell permissions; a
+blocked command is not permission to expose credentials or bypass the sandbox.
+
+The startup check follows the current [Bridge guidance](https://github.com/nowledge-co/community/blob/main/nowledge-mem-codex-plugin/skills/bridge/SKILL.md):
+
+1. Inspect installed help and run passive `bridge setup` with `--json` and
+   literal `--agent-context=<approved Context>`, without `--enable`.
+2. Verify the returned identity and exact Space. Use `endpoint.scope.space_id`
+   (or `space_id` in the login setup response) unchanged as
+   `--resolved-space-id=<exact Space>` before `inbox`, retaining the same
+   Context and connection. Read one page, without watch or polling. `ready`
+   verifies registration only; `registration_observed` or `enable_needed` may
+   still permit an existing inbox check when identity and Space are verified.
+   The opt-in flag does not authorize registration or following enable arguments.
+3. Scoped inbox IDs are in `messages[].message`. Open only relevant messages
+   (which records a read), and reply to that original only when sending is
+   authorized. Preserve Context and Space on every command; do not assume the
+   scoped response includes cross-Space `open_args` or `reply_args_prefix`.
+   Returned argument arrays are literal process arguments, never shell code.
+4. Stop on refusal, missing capability, empty output, or unverifiable setup.
+   Preserve the original connection; do not switch to a separate MCP login or
+   create credentials. For an uncertain operation, inspect/resume its retained
+   original selector rather than creating a replacement send.
+
+This integrates the existing **Agent mailbox**. It does not register DSH as a
+native-session Bridge host, wake an idle agent, or prove delivery readiness.
+The installed-host fixture verifies model visibility and exclusion from captured
+Threads; it does not establish a production two-Agent send/open/reply roundtrip.
