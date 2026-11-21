@@ -106,7 +106,7 @@ jobs:
         dsh: [0.2.2-rc.2, 0.2.2-rc.3, 0.2.2-rc.4, 0.2.2-rc.5]
         include:
           - os: macos-latest
-            dsh: 0.2.2-rc.3
+            dsh: 0.2.2-rc.5
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
@@ -132,6 +132,7 @@ jobs:
           pnpm@12.15.0
       # pnpm ships a launcher placeholder until its platform installer runs.
       - run: node node_modules/pnpm/install.js
-      - run: node --import ./tests/setup.mjs --test tests/installed-host.test.mjs
+      - run: node --import ./tests/setup.mjs --test --test-concurrency=1 tests/installed-host.test.mjs tests/installed-mcp.test.mjs
         env:
           DSH_INSTALLED_HOST_TEST: 'true'
+          DSH_INSTALLED_MCP_TEST: ${{ matrix.dsh == '0.2.2-rc.5' }}

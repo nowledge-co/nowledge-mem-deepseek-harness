@@ -115,9 +115,28 @@ keywords match whole words and their plural or verb forms (`mem` does not match
 
 The model sees a bounded recall message with memory titles, source hints, scores, and content.
 
-### MCP Tools
+### MCP Tools and Resources
 
-Mem MCP tools are registered through DSH's MCP bridge under the `nowledge_mem` namespace. DSH currently bridges MCP tools only; MCP resources and prompts are not surfaced by the Harness client.
+Mem MCP tools are registered through DSH's MCP bridge under the `nowledge_mem`
+namespace. DSH 0.2.2-rc.5's shipped profiles also expose `list_mcp_resources`,
+`list_mcp_resource_templates`, and `read_mcp_resource`; use `nowledge_mem` as
+the server name. Resource availability depends on the connected Mem server.
+Older or custom profiles may provide tools without the shared resource service.
+MCP prompt templates and resource subscriptions remain unsupported.
+
+On DSH 0.2.2-rc.5, the MCP entry allows eight seconds for each connection attempt, including
+negotiation and initial tool discovery. A failed initial attempt lets DSH
+continue while the host retries in the background. Individual tool calls and
+resource requests retain a separate 60-second timeout. Older hosts without
+`startupTimeoutMs` support retain their host-defined startup behavior. Override these budgets
+on the `nowledge-mem-mcp` row when the destination needs more time:
+
+```yaml
+- id: nowledge-mem-mcp
+  config:
+    startupTimeoutMs: 15000
+    toolCallTimeoutMs: 60000
+```
 
 ### Thread Capture
 
@@ -222,7 +241,7 @@ closed and logs why the retry was skipped.
 
 - DeepSeek Harness is in developer preview, so public package APIs may change.
 - Historical capture requires the explicit preview/apply command above and the optional host services; no automatic bulk upload or old-data cleanup runs.
-- The DSH MCP bridge exposes tools only, so Nowledge Mem resources/prompts are not shown through MCP today.
+- MCP resource access requires the host's shared resource service; MCP prompt templates and resource subscriptions are not supported.
 - Turn capture depends on the local `nmem` CLI being available in the DSH process environment.
 
 ## Community Position
@@ -251,6 +270,13 @@ against the official loopback mock model, and checks that clean transcript
 capture completes before host exit. That lane uses a fixture CLI receipt rather
 than a production Mem destination; separate App/Cloud qualification uses actual
 nmem and disposable backend stores. Neither test reads your regular DSH profile.
+
+On DSH 0.2.2-rc.5, the installed-host lane also keeps the bundle's MCP entry
+enabled against an authenticated loopback fixture. It verifies tool discovery,
+tool errors, resource listing and reading, recovery after a dropped HTTP request,
+and an unresponsive startup followed by automatic reconnection in the same host.
+These checks run sequentially on Ubuntu and macOS with the official mock model;
+they do not establish production Mem or provider acceptance.
 
 GitHub Actions runs ESLint and tests on every pull request and push to `main`.
 The test matrix covers Ubuntu and Windows with Node.js 24 and DSH 0.1.7-rc.1,

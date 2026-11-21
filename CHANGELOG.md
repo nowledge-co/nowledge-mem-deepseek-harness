@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Bound MCP connection and initial discovery attempts to eight seconds while
+  preserving fail-open startup and host-managed reconnection.
+- Qualify installed MCP tools, resource access, failure reporting and connection
+  recovery on DSH 0.2.2-rc.5 with isolated Ubuntu and macOS fixtures.
+- Document MCP resource support and separate connection and tool-call budgets.
+
 ## 0.2.1
 
 - Admit DeepSeek Harness 0.2.2-rc.3, rc.4 and rc.5 through normal plugin installation.
