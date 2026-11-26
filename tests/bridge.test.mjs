@@ -153,7 +153,7 @@ test('generic notice uses actual DSH session and local command on active steps',
   assert.doesNotThrow(() => assertReleasedV4Relationships({
     header: host.session.header,
     inheritedEventCount: 0,
-    events: [{ type: 'user/message', seq: 1, time: Date.now(), data: notice }],
+    events: [{ type: 'user/message', seq: 1, time: Date.now(), surfaceOp: 'append', data: notice }],
   }, new Set(['user/message'])))
   assert.equal(notice.source.kind, 'plugin:nowledge-mem')
   assert.equal(notice.source.form, 'notice')
