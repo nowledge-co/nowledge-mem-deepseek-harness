@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { Session } from '@deepseek-ai/dsh-session'
-import { assertV4RowAdmission } from '@deepseek-ai/dsh-session-format-v3-to-v4'
+import { assertV4RowAdmission, assertReleasedV4Relationships } from '@deepseek-ai/dsh-session-format-v3-to-v4'
 import { apply } from '../src/index.js'
 import { hasContextBundle } from '../src/context.js'
 
@@ -148,5 +148,13 @@ test('generic notice uses actual DSH session and local command on active steps',
   assert.match(host.requests[0].command, /bridge.*notices.*check/u)
   assert.ok(host.requests[0].command.includes('--session-id=' + host.session.header.id))
   assert.ok(host.requests[0].command.includes('--event=tool'))
-  assert.match(result.messages[1].content[0].text, /Synthetic pending mail/u)
+  const notice = result.messages[1]
+  assert.match(notice.content[0].text, /Synthetic pending mail/u)
+  assert.doesNotThrow(() => assertReleasedV4Relationships({
+    header: host.session.header,
+    inheritedEventCount: 0,
+    events: [{ type: 'user/message', seq: 1, time: Date.now(), data: notice }],
+  }, new Set(['user/message'])))
+  assert.equal(notice.source.kind, 'plugin:nowledge-mem')
+  assert.equal(notice.source.form, 'notice')
 })

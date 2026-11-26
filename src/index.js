@@ -528,7 +528,10 @@ export function apply(ctx, config = {}) {
         const stdout = successfulStdout(result)
         return {ok: stdout !== undefined, stdout: stdout ?? ''}
       })
-      if (!signal.aborted && notice) additions.push(createUserMessage({content: [{type: 'text', text: notice}]}))
+      if (!signal.aborted && notice) additions.push(createUserMessage({
+        content: [{ type: 'text', text: notice }],
+        source: { kind: `plugin:${name}`, form: 'notice', summary: 'Check the approved Bridge Agent inbox.' },
+      }))
     }
     if (hint && !bridgeHintedSessions.has(agent.session)) {
       // A Bridge reminder must not supersede or count as a Working Memory snapshot.
