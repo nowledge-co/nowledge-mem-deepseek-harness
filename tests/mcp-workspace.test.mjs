@@ -18,9 +18,9 @@ test('default DSH MCP follows the CLI and retains its bounded tool profile', () 
 })
 test('both explicit MCP URL settings still use direct remote HTTP', () => {
   for (const name of ['NMEM_MCP_URL', 'NOWLEDGE_MEM_MCP_URL']) {
-    const result = config({ [name]: 'https://mem.invalid/custom/mcp/', NMEM_API_KEY: 'synthetic' })
+    const result = config({ [name]: 'https://mem.invalid/custom-transport/', NMEM_API_KEY: 'synthetic' })
     assert.equal(result.transport, 'streamable-http')
-    assert.equal(result.url, 'https://mem.invalid/custom/mcp')
+    assert.equal(result.url, 'https://mem.invalid/custom-transport')
     assert.equal(result.headers.Authorization, 'Bearer synthetic')
     assert.equal(result.headers['X-Nmem-Tool-Set'], 'external-agent')
     assert.equal(result.headers['X-Nowledge-Tool-Schema-Profile'], 'slim')
